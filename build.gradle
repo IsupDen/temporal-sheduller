@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'org.springframework.boot' version '3.4.4'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'maven-publish'
 }
 
 group = 'ru.isupden'
@@ -30,6 +31,24 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+publishing {
+    publications {
+        register("mavenJava", MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = "github"
+            url = uri("https://maven.pkg.github.com/IsupDen/temporal-sheduller")
+            credentials {
+                username = System.getenv("USERNAME")
+                password = System.getenv("TOKEN")
+            }
+        }
+    }
 }
 
 tasks.named('test') {
