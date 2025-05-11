@@ -1,25 +1,24 @@
 package ru.isupden.schedulingmodule.strategy;
 
-import java.util.Comparator;
-import java.util.Queue;
-
 import org.springframework.stereotype.Component;
-import ru.isupden.schedulingmodule.model.PriorityTask;
+import ru.isupden.schedulingmodule.model.Task;
 
 /**
  * Picks the task with highest priority value.
  */
 @Component("priority")
-public class PrioritySchedulingStrategy implements SchedulingStrategy<PriorityTask> {
+public class PrioritySchedulingStrategy implements SchedulingStrategy {
+
     @Override
-    public Class<PriorityTask> getTaskClass() {
-        return PriorityTask.class;
+    public boolean canCompare(Task a, Task b) {
+        return a.attr("priority", Integer.class) != null
+                && b.attr("priority", Integer.class) != null;
     }
 
     @Override
-    public PriorityTask nextTask(Queue<PriorityTask> readyQueue) {
-        return readyQueue.stream()
-                .max(Comparator.comparingInt(PriorityTask::getPriority))
-                .orElse(null);
+    public int compare(Task a, Task b) {
+        int pa = a.attr("priority", Integer.class);
+        int pb = b.attr("priority", Integer.class);
+        return Integer.compare(pb, pa);
     }
 }

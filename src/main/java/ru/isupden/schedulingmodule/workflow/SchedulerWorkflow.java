@@ -29,15 +29,6 @@ public interface SchedulerWorkflow {
     @QueryMethod
     int getQueueLength();
 
-    /**
-     * Query current throughput (tasks/sec).
-     */
-    @QueryMethod
-    double getCurrentThroughput();
-
-    /**
-     * Query active strategy name.
-     */
-    @QueryMethod
-    String getCurrentStrategy();
+    @SignalMethod
+    void reportUsage(String tenant, double cost);
 }

@@ -6,45 +6,46 @@ import java.util.Map;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** Корневой YAML-префикс  `scheduling-module`. */
 @Data
 @ConfigurationProperties(prefix = "scheduling-module")
 public class SchedulingModuleProperties {
-    /**
-     * Temporal namespace
-     */
+
+    /** Temporal namespace, если он отличается от defaults. */
     private String namespace = "default";
 
-    /**
-     * Back-pressure parameters
-     */
-    private Backpressure backpressure = new Backpressure();
-
-    /**
-     * Map of client configurations
-     */
+    /** карта <clientName → ClientProperties>. */
     private Map<String, ClientProperties> clients = new HashMap<>();
 
-    @Data
-    public static class Backpressure {
-        /**
-         * Sliding window size in seconds
-         */
-        private int windowSeconds = 60;
-        /**
-         * Throughput factor threshold
-         */
-        private double throughputFactor = 1.0;
-    }
+    /** Глобальные back-pressure настройки. */
+    private Backpressure backpressure = new Backpressure();
+
+    /** Настройки fairness-затухания. */
+    private Fairness fairness = new Fairness();
+
+    /** Tenant-квоты (используются Fairness-стратегией). */
+    private Map<String, Double> quotas = new HashMap<>();
+
+    /* ---------- вложенные ---------- */
 
     @Data
     public static class ClientProperties {
-        /**
-         * Temporal Task Queue name
-         */
         private String taskQueue;
         /**
-         * Scheduling strategy bean name
+         * Имя стратегии или композиция (`priority+deadline`).
          */
         private String strategy;
+    }
+
+    @Data
+    public static class Backpressure {
+        private long   windowSeconds      = 60;   // sliding-window W
+        private double throughputFactor   = 10;   // лимит задач/сек
+    }
+
+    @Data
+    public static class Fairness {
+        /** Полувремя затухания EWMA (сек). */
+        private long halfLifeSeconds = 3600;
     }
 }

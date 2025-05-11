@@ -1,5 +1,6 @@
 package ru.isupden.schedulingmodule.strategy;
 
+import java.time.Instant;
 import java.util.Queue;
 
 import ru.isupden.schedulingmodule.model.Task;
@@ -7,13 +8,27 @@ import ru.isupden.schedulingmodule.model.Task;
 /**
  * Plugin interface for scheduling algorithms.
  */
-public interface SchedulingStrategy<T extends Task> {
-    /**
-     * Selects the next task from the ready queue.
-     * @param readyQueue all available tasks
-     * @return next Task to dispatch, or null if none
-     */
-    T nextTask(Queue<T> readyQueue);
+public interface SchedulingStrategy {
 
-    Class<T> getTaskClass();
+    /**
+     * Может ли критерий сравнить пару тасков?
+     * Например, у одного нет priority — возвращаем false и
+     * Composite пропустит этот критерий.
+     */
+    boolean canCompare(Task a, Task b);
+
+    /**
+     * Сравнение.
+     * Должно вызываться ТОЛЬКО если canCompare == true для этой пары.
+     * < 0 → a «лучше», > 0 → b лучше, 0 → равны.
+     */
+    int compare(Task a, Task b);
+
+    /** Предобработка очереди (удалить expired и т. п.). По умолчанию — NOP. */
+    default void preprocess(Queue<Task> queue, Instant now) {}
+
+    /** Хук после успешного dispatch (для Fairness). */
+    default void onDispatch(Task task, Instant at) {}
+
+    default void onShutdown() {}
 }

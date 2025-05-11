@@ -1,37 +1,34 @@
 package ru.isupden.schedulingmodule.activity;
 
+import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowOptions;
-import io.temporal.client.WorkflowStub;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
  * Implementation of DispatchActivity, starts external workflows.
  */
 @Component
+@RequiredArgsConstructor
 public class DispatchActivityImpl implements DispatchActivity {
+
     private final WorkflowClient client;
 
-    public DispatchActivityImpl(WorkflowClient client) {
-        this.client = Objects.requireNonNull(client);
-    }
-
     @Override
-    public void dispatchTask(String workflowType,
-                             String workflowId,
-                             Map<String,Object> payload,
+    public void dispatchTask(String wfType,
+                             String wfId,
+                             Map<String, Object> payload,
                              String taskQueue) {
-        WorkflowOptions options = WorkflowOptions.newBuilder()
+        String tenant = (String) payload.getOrDefault("tenantId", "default");
+        WorkflowOptions opts = WorkflowOptions.newBuilder()
+                .setWorkflowId(wfId)
                 .setTaskQueue(taskQueue)
-                .setWorkflowId(workflowId)
+                .setMemo(Map.of("tenantId", tenant))      // ← сюда
                 .build();
 
-        WorkflowStub stub = client.newUntypedWorkflowStub(workflowType, options);
-        // pass the payload object directly
-        stub.start(payload);
+        client.newUntypedWorkflowStub(wfType, opts).start(payload);
     }
 }

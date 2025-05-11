@@ -1,31 +1,38 @@
 package ru.isupden.schedulingmodule.model;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-@SuperBuilder
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type"
-)
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = PriorityTask.class,   name = "PRIORITY"),
-        @JsonSubTypes.Type(value = DeadlineBasedTask.class,   name = "DEADLINE"),
-        @JsonSubTypes.Type(value = ResourceAwareTask.class,   name = "RESOURCE"),
-        @JsonSubTypes.Type(value = FairnessOrientedTask.class,   name = "FAIRNESS"),
-})
-public abstract class Task {
-    protected String workflowType;
-    protected String workflowId;
-    protected Map<String, Object> payload;
+@NoArgsConstructor
+@Builder
+public class Task {
+
+    /** Тип воркфлоу, который нужно запустить. */
+    private String workflowType;
+
+    /** WorkflowId для child-воркфлоу. */
+    private String workflowId;
+
+    /** Произвольный payload, который передаётся в child-воркфлоу. */
+    @Builder.Default
+    private Map<String, Object> payload = new HashMap<>();
+
+    @Builder.Default
+    @Getter
+    private Map<String, Object> attributes = new HashMap<>();
+
+    /** Утилита: получить атрибут нужного типа или null. */
+    @SuppressWarnings("unchecked")
+    public <T> T attr(String key, Class<T> type) {
+        Object o = attributes.get(key);
+        return type.isInstance(o) ? (T) o : null;
+    }
 }
