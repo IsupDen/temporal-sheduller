@@ -1,12 +1,10 @@
 package ru.isupden.schedulingmodule.strategy;
 
-import org.springframework.stereotype.Component;
 import ru.isupden.schedulingmodule.model.Task;
 
 /**
  * Picks the task with highest priority value.
  */
-@Component("priority")
 public class PrioritySchedulingStrategy implements SchedulingStrategy {
 
     @Override

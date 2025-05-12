@@ -13,6 +13,6 @@ public interface DispatchActivity {
     @ActivityMethod
     void dispatchTask(String workflowType,
                       String workflowId,
-                      Map<String,Object> payload,
+                      Map<String, Object> payload,
                       String taskQueue);
 }

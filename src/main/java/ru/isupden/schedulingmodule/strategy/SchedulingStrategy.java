@@ -24,11 +24,18 @@ public interface SchedulingStrategy {
      */
     int compare(Task a, Task b);
 
-    /** Предобработка очереди (удалить expired и т. п.). По умолчанию — NOP. */
-    default void preprocess(Queue<Task> queue, Instant now) {}
+    /**
+     * Предобработка очереди (удалить expired и т. п.). По умолчанию — NOP.
+     */
+    default void preprocess(Queue<Task> queue, Instant now) {
+    }
 
-    /** Хук после успешного dispatch (для Fairness). */
-    default void onDispatch(Task task, Instant at) {}
+    /**
+     * Хук после успешного dispatch (для Fairness).
+     */
+    default void onDispatch(Task task, Instant at) {
+    }
 
-    default void onShutdown() {}
+    default void onShutdown() {
+    }
 }

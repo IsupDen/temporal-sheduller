@@ -1,12 +1,20 @@
 package ru.isupden.schedulingmodule.config;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import io.temporal.client.WorkflowClient;
+import io.temporal.client.WorkflowClientOptions;
+import io.temporal.client.WorkflowExecutionAlreadyStarted;
+import io.temporal.client.WorkflowOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
+import io.temporal.worker.Worker;
 import io.temporal.worker.WorkerFactory;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +26,8 @@ import ru.isupden.schedulingmodule.strategy.DeadlineSchedulingStrategy;
 import ru.isupden.schedulingmodule.strategy.FairnessSchedulingStrategy;
 import ru.isupden.schedulingmodule.strategy.PrioritySchedulingStrategy;
 import ru.isupden.schedulingmodule.strategy.SchedulingStrategy;
+import ru.isupden.schedulingmodule.workflow.SchedulerWorkflow;
+import ru.isupden.schedulingmodule.workflow.SchedulerWorkflowImpl;
 
 @Configuration
 @EnableConfigurationProperties(SchedulingModuleProperties.class)
@@ -26,27 +36,28 @@ public class SchedulingModuleAutoConfiguration {
 
     private final SchedulingModuleProperties props;
 
-    /* -------- Temporal базовые бины, если пользователь их не создал сам -------- */
+    /* ──────── Temporal basics ──────── */
 
     @Bean
-    @ConditionalOnMissingBean
-    public WorkflowServiceStubs workflowServiceStubs() {
+    public WorkflowServiceStubs serviceStubs() {
         return WorkflowServiceStubs.newLocalServiceStubs();
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public WorkflowClient workflowClient(WorkflowServiceStubs stubs) {
-        return WorkflowClient.newInstance(stubs);
+        return WorkflowClient.newInstance(
+                stubs,
+                WorkflowClientOptions.newBuilder()
+                        .setNamespace(props.getNamespace())
+                        .build());
     }
 
     @Bean
-    @ConditionalOnMissingBean
     public WorkerFactory workerFactory(WorkflowClient client) {
         return WorkerFactory.newInstance(client);
     }
 
-    /* ---------------- Activity ---------------- */
+    /* ──────── Dispatch-activity ──────── */
 
     @Bean
     @ConditionalOnMissingBean(DispatchActivity.class)
@@ -54,41 +65,88 @@ public class SchedulingModuleAutoConfiguration {
         return new DispatchActivityImpl(client);
     }
 
-    /* ---------------- Регистрация «штатных» стратегий ---------------- */
+    /* ──────── «Штатные» стратегии ──────── */
 
     @Bean("priority")
-    public SchedulingStrategy priorityStrategy() { return new PrioritySchedulingStrategy(); }
+    public SchedulingStrategy priority() {
+        return new PrioritySchedulingStrategy();
+    }
 
     @Bean("deadline")
-    public SchedulingStrategy deadlineStrategy() { return new DeadlineSchedulingStrategy(); }
+    public SchedulingStrategy deadline() {
+        return new DeadlineSchedulingStrategy();
+    }
 
     @Bean("critical")
-    public SchedulingStrategy criticalStrategy() { return new CriticalPathSchedulingStrategy(); }
+    public SchedulingStrategy critical() {
+        return new CriticalPathSchedulingStrategy();
+    }
 
     @Bean("fairness")
-    public SchedulingStrategy fairnessStrategy() {
+    public SchedulingStrategy fairness() {
         return new FairnessSchedulingStrategy(
                 props.getQuotas(),
                 props.getFairness().getHalfLifeSeconds());
     }
 
     /**
-     * Регистратор бинов в Map: <имя → стратегия>.
-     * Пользователь может @Autowire Map<String,SchedulingStrategy> strategies
-     * и получить все зарегистрированные экземпляры.
+     * Map<String, SchedulingStrategy> для автосвязывания в SchedulerWorkflowImpl
      */
     @Bean
     public Map<String, SchedulingStrategy> strategyRegistry(
-            PrioritySchedulingStrategy priority,
-            DeadlineSchedulingStrategy deadline,
-            FairnessSchedulingStrategy fairness,
-            CriticalPathSchedulingStrategy critical) {
+            @Qualifier("priority") SchedulingStrategy priority,
+            @Qualifier("deadline") SchedulingStrategy deadline,
+            @Qualifier("critical") SchedulingStrategy critical,
+            @Qualifier("fairness") SchedulingStrategy fairness) {
 
-        Map<String, SchedulingStrategy> map = new HashMap<>();
-        map.put("priority", priority);
-        map.put("deadline", deadline);
-        map.put("fairness", fairness);
-        map.put("critical", critical);
-        return map;
+        Map<String, SchedulingStrategy> m = new HashMap<>();
+        m.put("priority", priority);
+        m.put("deadline", deadline);
+        m.put("critical", critical);
+        m.put("fairness", fairness);
+        return m;
+    }
+
+    /* ──────── Служебные worker-ы (по одному на клиента) ──────── */
+
+    @Bean
+    public List<Worker> schedulerWorkers(WorkerFactory factory,
+                                         DispatchActivity dispatch) {
+
+        List<Worker> list = new ArrayList<>();
+
+        props.getClients().forEach((name, cfg) -> {
+            String q = "scheduler-" + name;
+
+            Worker w = factory.newWorker(q);
+            w.registerWorkflowImplementationTypes(SchedulerWorkflowImpl.class);
+            w.registerActivitiesImplementations(dispatch);
+            list.add(w);
+        });
+
+        factory.start();          // запускаем poller-ы Scheduler-очередей
+        return list;
+    }
+
+    /* ──────── Автоматический запуск Scheduler-workflow-ов ──────── */
+
+    @PostConstruct
+    void startSchedulers(WorkflowClient client) {
+        props.getClients().forEach((name, cfg) -> {
+            String wfId = "SCHED_" + name;
+            String q = "scheduler-" + name;
+
+            SchedulerWorkflow stub = client.newWorkflowStub(
+                    SchedulerWorkflow.class,
+                    WorkflowOptions.newBuilder()
+                            .setWorkflowId(wfId)
+                            .setTaskQueue(q)
+                            .build());
+
+            try {
+                WorkflowClient.start(stub::run, name);
+            } catch (WorkflowExecutionAlreadyStarted ignore) {
+            }
+        });
     }
 }

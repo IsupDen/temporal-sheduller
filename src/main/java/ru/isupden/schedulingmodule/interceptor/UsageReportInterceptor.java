@@ -1,14 +1,8 @@
 package ru.isupden.schedulingmodule.interceptor;
 
-import java.util.Map;
-
-import io.temporal.api.common.v1.Payload;
 import io.temporal.common.interceptors.WorkflowInboundCallsInterceptor;
 import io.temporal.common.interceptors.WorkflowInboundCallsInterceptorBase;
-import io.temporal.common.interceptors.WorkflowOutboundCallsInterceptor;
-import io.temporal.common.interceptors.WorkflowOutboundCallsInterceptorBase;
 import io.temporal.workflow.Workflow;
-import io.temporal.workflow.WorkflowInfo;
 import org.springframework.stereotype.Component;
 import ru.isupden.schedulingmodule.workflow.SchedulerWorkflow;
 
@@ -31,13 +25,13 @@ public class UsageReportInterceptor extends WorkflowInboundCallsInterceptorBase 
         try {
             out = super.execute(input);                 // выполняем Workflow
         } finally {
-            sendUsageSignal(input);
+            sendUsageSignal();
         }
         return out;
     }
 
     /* ---------------- helper ---------------- */
-    private void sendUsageSignal(WorkflowInput in) {
+    private void sendUsageSignal() {
         // tenantId может быть передан в Memo при запуске child-WF
         String tenant = Workflow.getMemo("tenantId", String.class, null);
         if (tenant == null) {

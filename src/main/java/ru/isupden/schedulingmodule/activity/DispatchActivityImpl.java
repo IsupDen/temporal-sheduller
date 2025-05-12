@@ -1,6 +1,5 @@
 package ru.isupden.schedulingmodule.activity;
 
-import java.time.Duration;
 import java.util.Map;
 
 import io.temporal.client.WorkflowClient;
