@@ -111,20 +111,35 @@ public class SchedulingModuleAutoConfiguration {
     /* ──────── Служебные worker-ы (по одному на клиента) ──────── */
 
     @Bean
-    public List<Worker> schedulerWorkers(WorkerFactory factory,
-                                         DispatchActivity dispatch) {
+    public SchedulerWorkflowImpl schedulerWorkflowImpl(
+            SchedulingModuleProperties props,
+            Map<String, SchedulingStrategy> strategies,
+            DispatchActivity dispatchActivity
+    ) {
+        return new SchedulerWorkflowImpl(props, strategies, dispatchActivity);
+    }
 
+    @Bean
+    public List<Worker> schedulerWorkers(
+            WorkerFactory factory,
+            DispatchActivity dispatchActivity,
+            SchedulerWorkflowImpl schedulerWorkflowImpl
+    ) {
         List<Worker> list = new ArrayList<>();
-
         props.getClients().forEach((name, cfg) -> {
             String q = "scheduler-" + name;
 
             Worker w = factory.newWorker(q);
-            w.registerWorkflowImplementationTypes(SchedulerWorkflowImpl.class);
-            w.registerActivitiesImplementations(dispatch);
+
+            // регистрируем не класс, а фабрику, возвращающую Spring-бину
+            w.registerWorkflowImplementationFactory(
+                    SchedulerWorkflow.class,
+                    () -> schedulerWorkflowImpl
+            );
+
+            w.registerActivitiesImplementations(dispatchActivity);
             list.add(w);
         });
-
         return list;
     }
 
