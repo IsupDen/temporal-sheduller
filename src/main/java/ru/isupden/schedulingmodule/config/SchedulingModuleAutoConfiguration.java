@@ -12,11 +12,12 @@ import io.temporal.client.WorkflowOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
 import io.temporal.worker.Worker;
 import io.temporal.worker.WorkerFactory;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import ru.isupden.schedulingmodule.activity.DispatchActivity;
@@ -124,29 +125,36 @@ public class SchedulingModuleAutoConfiguration {
             list.add(w);
         });
 
-        factory.start();          // запускаем poller-ы Scheduler-очередей
         return list;
     }
 
     /* ──────── Автоматический запуск Scheduler-workflow-ов ──────── */
 
-    @PostConstruct
-    void startSchedulers(WorkflowClient client) {
-        props.getClients().forEach((name, cfg) -> {
-            String wfId = "SCHED_" + name;
-            String q = "scheduler-" + name;
+    @Bean
+    public ApplicationListener<ApplicationReadyEvent> bootstrapSchedulers(
+            WorkerFactory factory, WorkflowClient client) {
 
-            SchedulerWorkflow stub = client.newWorkflowStub(
-                    SchedulerWorkflow.class,
-                    WorkflowOptions.newBuilder()
-                            .setWorkflowId(wfId)
-                            .setTaskQueue(q)
-                            .build());
+        return evt -> {
+            // 1) стартуем Scheduler-workflow-ы (если ещё не запущены)
+            props.getClients().forEach((name, cfg) -> {
+                String wfId = "SCHED_" + name;
+                String q = "scheduler-" + name;
 
-            try {
-                WorkflowClient.start(stub::run, name);
-            } catch (WorkflowExecutionAlreadyStarted ignore) {
-            }
-        });
+                SchedulerWorkflow stub = client.newWorkflowStub(
+                        SchedulerWorkflow.class,
+                        WorkflowOptions.newBuilder()
+                                .setWorkflowId(wfId)
+                                .setTaskQueue(q)
+                                .build());
+
+                try {
+                    WorkflowClient.start(stub::run, name);
+                } catch (WorkflowExecutionAlreadyStarted ignore) {
+                }
+            });
+
+            // 2) запускаем ВСЕ собранные worker-poller-ы
+            factory.start();
+        };
     }
 }
