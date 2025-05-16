@@ -15,8 +15,14 @@ public class PrioritySchedulingStrategy implements SchedulingStrategy {
 
     @Override
     public int compare(Task a, Task b) {
-        int pa = a.attr("priority", Integer.class);
-        int pb = b.attr("priority", Integer.class);
+        if (!canCompare(a, b)) {
+            return 0;
+        }
+
+        var pa = a.attr("priority", Integer.class);
+        var pb = b.attr("priority", Integer.class);
+
+        // Более высокий приоритет (большее число) должен идти раньше
         return Integer.compare(pb, pa);
     }
 }

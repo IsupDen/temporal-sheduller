@@ -26,11 +26,12 @@ public class CriticalPathSchedulingStrategy implements SchedulingStrategy {
     @Override
     public boolean canCompare(Task a, Task b) {
         return true;
-    }   // сами разберёмся
+    }
 
     @Override
     public int compare(Task a, Task b) {
-        boolean readyA = depsSatisfied(a), readyB = depsSatisfied(b);
+        var readyA = depsSatisfied(a);
+        var readyB = depsSatisfied(b);
 
         if (readyA && !readyB) {
             return -1;       // A готова, B нет  → A «лучше»
@@ -43,15 +44,14 @@ public class CriticalPathSchedulingStrategy implements SchedulingStrategy {
         }
 
         /* обе готовы → смотрим длину критического пути */
-        int ca = Optional.ofNullable(a.attr("criticalLen", Integer.class)).orElse(0);
-        int cb = Optional.ofNullable(b.attr("criticalLen", Integer.class)).orElse(0);
+        var ca = Optional.ofNullable(a.attr("criticalLen", Integer.class)).orElse(0);
+        var cb = Optional.ofNullable(b.attr("criticalLen", Integer.class)).orElse(0);
         return Integer.compare(cb, ca);         // длиннее путь → раньше
     }
 
     /* --- helper: все ли зависимости dispatch-нуты? --- */
-    @SuppressWarnings("unchecked")
     private boolean depsSatisfied(Task t) {
-        List<String> deps = t.attr("dependsOn", List.class);
+        var deps = t.attr("dependsOn", List.class);
         return deps == null || dispatched.containsAll(deps);
     }
 

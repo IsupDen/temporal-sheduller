@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowClientOptions;
 import io.temporal.client.WorkflowExecutionAlreadyStarted;
@@ -20,8 +23,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.ContextClosedEvent;
 import ru.isupden.schedulingmodule.activity.DispatchActivity;
 import ru.isupden.schedulingmodule.activity.DispatchActivityImpl;
+import ru.isupden.schedulingmodule.metrics.SchedulingMetricsService;
 import ru.isupden.schedulingmodule.strategy.CriticalPathSchedulingStrategy;
 import ru.isupden.schedulingmodule.strategy.DeadlineSchedulingStrategy;
 import ru.isupden.schedulingmodule.strategy.FairnessSchedulingStrategy;
@@ -36,6 +41,18 @@ import ru.isupden.schedulingmodule.workflow.SchedulerWorkflowImpl;
 public class SchedulingModuleAutoConfiguration {
 
     private final SchedulingModuleProperties props;
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MeterRegistry meterRegistry() {
+        return new SimpleMeterRegistry();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SchedulingMetricsService schedulingMetricsService(MeterRegistry registry) {
+        return new SchedulingMetricsService(registry);
+    }
 
     /* ──────── Temporal basics ──────── */
 
@@ -62,8 +79,8 @@ public class SchedulingModuleAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(DispatchActivity.class)
-    public DispatchActivity dispatchActivity(WorkflowClient client) {
-        return new DispatchActivityImpl(client);
+    public DispatchActivity dispatchActivity(WorkflowClient client, SchedulingMetricsService metricsService) {
+        return new DispatchActivityImpl(client, metricsService);
     }
 
     /* ──────── «Штатные» стратегии ──────── */
@@ -114,9 +131,10 @@ public class SchedulingModuleAutoConfiguration {
     public SchedulerWorkflowImpl schedulerWorkflowImpl(
             SchedulingModuleProperties props,
             Map<String, SchedulingStrategy> strategies,
-            DispatchActivity dispatchActivity
+            DispatchActivity dispatchActivity,
+            SchedulingMetricsService metricsService
     ) {
-        return new SchedulerWorkflowImpl(props, strategies, dispatchActivity);
+        return new SchedulerWorkflowImpl(props, strategies, dispatchActivity, metricsService);
     }
 
     @Bean
@@ -125,13 +143,12 @@ public class SchedulingModuleAutoConfiguration {
             DispatchActivity dispatchActivity,
             SchedulerWorkflowImpl schedulerWorkflowImpl
     ) {
-        List<Worker> list = new ArrayList<>();
+        var list = new ArrayList<Worker>();
         props.getClients().forEach((name, cfg) -> {
-            String q = "scheduler-" + name;
+            var q = "scheduler-" + name;
 
-            Worker w = factory.newWorker(q);
+            var w = factory.newWorker(q);
 
-            // регистрируем не класс, а фабрику, возвращающую Spring-бину
             w.registerWorkflowImplementationFactory(
                     SchedulerWorkflow.class,
                     () -> schedulerWorkflowImpl
@@ -150,12 +167,11 @@ public class SchedulingModuleAutoConfiguration {
             WorkerFactory factory, WorkflowClient client) {
 
         return evt -> {
-            // 1) стартуем Scheduler-workflow-ы (если ещё не запущены)
             props.getClients().forEach((name, cfg) -> {
-                String wfId = "SCHED_" + name;
-                String q = "scheduler-" + name;
+                var wfId = "SCHED_" + name;
+                var q = "scheduler-" + name;
 
-                SchedulerWorkflow stub = client.newWorkflowStub(
+                var stub = client.newWorkflowStub(
                         SchedulerWorkflow.class,
                         WorkflowOptions.newBuilder()
                                 .setWorkflowId(wfId)
@@ -168,8 +184,15 @@ public class SchedulingModuleAutoConfiguration {
                 }
             });
 
-            // 2) запускаем ВСЕ собранные worker-poller-ы
             factory.start();
+        };
+    }
+
+    @Bean
+    public ApplicationListener<ContextClosedEvent> shutdownListener(WorkerFactory factory) {
+        return event -> {
+            factory.shutdown();
+            factory.awaitTermination(30, TimeUnit.SECONDS);
         };
     }
 }

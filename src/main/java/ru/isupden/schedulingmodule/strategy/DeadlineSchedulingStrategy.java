@@ -18,6 +18,9 @@ public class DeadlineSchedulingStrategy implements SchedulingStrategy {
 
     @Override
     public int compare(Task a, Task b) {
+        if (!canCompare(a, b)) {
+            return 0;
+        }
         return deadlineOf(a).compareTo(deadlineOf(b));   // раньше = «лучше»
     }
 
@@ -39,7 +42,7 @@ public class DeadlineSchedulingStrategy implements SchedulingStrategy {
     @Override
     public void preprocess(Queue<Task> queue, Instant now) {
         queue.removeIf(t -> {
-            Instant dl = deadlineOf(t);
+            var dl = deadlineOf(t);
             return dl != null && dl.isBefore(now);
         });
     }

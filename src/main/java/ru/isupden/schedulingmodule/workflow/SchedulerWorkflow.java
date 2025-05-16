@@ -21,7 +21,7 @@ public interface SchedulerWorkflow {
      * Signal to add more tasks into the ready queue.
      */
     @SignalMethod
-    void submitTasks(List<Task> tasks);
+    void submitTasks(List<Task> tasks, String clientName);
 
     /**
      * Query current ready-queue length.

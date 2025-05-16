@@ -13,17 +13,18 @@ import ru.isupden.schedulingmodule.workflow.SchedulerWorkflow;
 @Component
 public class UsageReportInterceptor extends WorkflowInboundCallsInterceptorBase {
 
-    private final long startMs = Workflow.currentTimeMillis();
+    private long startMs;
 
     public UsageReportInterceptor(WorkflowInboundCallsInterceptor next) {
         super(next);
     }
 
-    @Override                                        // ← актуальная сигнатура
+    @Override
     public WorkflowOutput execute(WorkflowInput input) {
+        startMs = Workflow.currentTimeMillis();
         WorkflowOutput out;
         try {
-            out = super.execute(input);                 // выполняем Workflow
+            out = super.execute(input);
         } finally {
             sendUsageSignal();
         }
@@ -32,16 +33,18 @@ public class UsageReportInterceptor extends WorkflowInboundCallsInterceptorBase 
 
     /* ---------------- helper ---------------- */
     private void sendUsageSignal() {
-        // tenantId может быть передан в Memo при запуске child-WF
-        String tenant = Workflow.getMemo("tenantId", String.class, null);
+        var tenant = Workflow.getMemo("tenantId", String.class, null);
         if (tenant == null) {
             return;
         }
 
-        double cpuSec = (Workflow.currentTimeMillis() - startMs) / 1000.0;
+        var cpuSec = (Workflow.currentTimeMillis() - startMs) / 1000.0;
 
-        SchedulerWorkflow sched = Workflow.newExternalWorkflowStub(
-                SchedulerWorkflow.class, "SCHED_" + Workflow.getInfo().getNamespace());
+        // Получаем clientName из Memo или используем namespace как fallback
+        var clientName = Workflow.getMemo("clientName", String.class);
+
+        var sched = Workflow.newExternalWorkflowStub(
+                SchedulerWorkflow.class, "SCHED_" + clientName);
 
         sched.reportUsage(tenant, cpuSec);
     }

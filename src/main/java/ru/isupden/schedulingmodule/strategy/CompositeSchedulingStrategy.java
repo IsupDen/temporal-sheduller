@@ -24,10 +24,7 @@ public class CompositeSchedulingStrategy
     @Override
     public int compare(Task a, Task b) {
         for (var s : chain) {
-            if (!s.canCompare(a, b)) {
-                continue;
-            }
-            int c = s.compare(a, b);
+            var c = s.compare(a, b);
             if (c != 0) {
                 return c;
             }
