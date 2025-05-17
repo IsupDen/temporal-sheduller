@@ -198,6 +198,7 @@ public class SchedulerWorkflowImpl implements SchedulerWorkflow {
     private SchedulingStrategy buildStrategy(String name) {
         var list = Arrays.stream(name.split("\\+"))
                 .map(strategies::get).toList();
+        log.info("Building strategy: {}; strategies: {}, getting: {}", name, strategies, list);
         return list.size() == 1 ? list.getFirst() : new CompositeSchedulingStrategy(list);
     }
 
