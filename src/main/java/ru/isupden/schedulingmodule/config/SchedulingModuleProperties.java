@@ -18,6 +18,8 @@ public class SchedulingModuleProperties {
      */
     private String namespace = "default";
 
+    private String target = "127.0.0.1:7233";
+
     /**
      * карта <clientName → ClientProperties>.
      */

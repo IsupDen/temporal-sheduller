@@ -13,6 +13,7 @@ import io.temporal.client.WorkflowClientOptions;
 import io.temporal.client.WorkflowExecutionAlreadyStarted;
 import io.temporal.client.WorkflowOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
+import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 import io.temporal.worker.Worker;
 import io.temporal.worker.WorkerFactory;
 import lombok.RequiredArgsConstructor;
@@ -58,7 +59,10 @@ public class SchedulingModuleAutoConfiguration {
 
     @Bean
     public WorkflowServiceStubs serviceStubs() {
-        return WorkflowServiceStubs.newLocalServiceStubs();
+        return WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder()
+                .setTarget(props.getTarget())
+                .validateAndBuildWithDefaults()
+        );
     }
 
     @Bean
