@@ -70,14 +70,16 @@ public class SchedulerWorkflowImpl implements SchedulerWorkflow {
         if (props == null) {
             throw new IllegalStateException("SchedulerWorkflowImpl not properly initialized");
         }
-        log.info("Starting scheduler workflow for client: {}; props: {}", clientName, props.getClients().get(clientName));
+        log.info("Starting scheduler workflow for client: {}", clientName);
 
         cfg = Optional.ofNullable(props.getClients().get(clientName))
                 .orElseThrow();
 
+        log.info("config: {}", cfg);
+
         strategy = buildStrategy(cfg.getStrategy());
         metricsService.registerClient(clientName);
-        log.info("Using strategy: {}", cfg.getStrategy());
+        log.info("Using strategy: {}", strategy);
 
         var ao = ActivityOptions.newBuilder()
                 .setStartToCloseTimeout(Duration.ofMinutes(1)).build();
