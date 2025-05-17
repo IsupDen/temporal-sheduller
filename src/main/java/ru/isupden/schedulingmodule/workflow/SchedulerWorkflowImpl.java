@@ -70,7 +70,7 @@ public class SchedulerWorkflowImpl implements SchedulerWorkflow {
         if (props == null) {
             throw new IllegalStateException("SchedulerWorkflowImpl not properly initialized");
         }
-        log.info("Starting scheduler workflow for client: {}", clientName);
+        log.info("Starting scheduler workflow for client: {}; props: {}", clientName, props);
 
         cfg = Optional.ofNullable(props.getClients().get(clientName))
                 .orElseThrow();
