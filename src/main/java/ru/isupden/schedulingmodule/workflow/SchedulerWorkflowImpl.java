@@ -197,7 +197,14 @@ public class SchedulerWorkflowImpl implements SchedulerWorkflow {
     /* ─────────── helpers ─────────── */
     private SchedulingStrategy buildStrategy(String name) {
         var list = Arrays.stream(name.split("\\+"))
-                .map(strategies::get).toList();
+                .map(str -> {
+                    var strategy = strategies.get(str);
+                    if (strategy == null) {
+                        throw new IllegalArgumentException("Unknown strategy: " + str);
+                    }
+                    return strategy;
+                })
+                .toList();
         log.info("Building strategy: {}; strategies: {}, getting: {}", name, strategies, list);
         return list.size() == 1 ? list.getFirst() : new CompositeSchedulingStrategy(list);
     }

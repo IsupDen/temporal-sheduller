@@ -132,20 +132,12 @@ public class SchedulingModuleAutoConfiguration {
     /* ──────── Служебные worker-ы (по одному на клиента) ──────── */
 
     @Bean
-    public SchedulerWorkflowImpl schedulerWorkflowImpl(
-            SchedulingModuleProperties props,
-            Map<String, SchedulingStrategy> strategies,
-            DispatchActivity dispatchActivity,
-            SchedulingMetricsService metricsService
-    ) {
-        return new SchedulerWorkflowImpl(props, strategies, dispatchActivity, metricsService);
-    }
-
-    @Bean
     public List<Worker> schedulerWorkers(
             WorkerFactory factory,
             DispatchActivity dispatchActivity,
-            SchedulerWorkflowImpl schedulerWorkflowImpl
+            SchedulingModuleProperties props,
+            Map<String, SchedulingStrategy> strategies,
+            SchedulingMetricsService metricsService
     ) {
         var list = new ArrayList<Worker>();
         props.getClients().forEach((name, cfg) -> {
@@ -155,7 +147,7 @@ public class SchedulingModuleAutoConfiguration {
 
             w.registerWorkflowImplementationFactory(
                     SchedulerWorkflow.class,
-                    () -> schedulerWorkflowImpl
+                    () -> new SchedulerWorkflowImpl(props, strategies, dispatchActivity, metricsService)
             );
 
             w.registerActivitiesImplementations(dispatchActivity);
@@ -163,6 +155,7 @@ public class SchedulingModuleAutoConfiguration {
         });
         return list;
     }
+
 
     /* ──────── Автоматический запуск Scheduler-workflow-ов ──────── */
 
