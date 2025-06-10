@@ -21,7 +21,7 @@
 
 ```gradle
 dependencies {
-    implementation 'ru.isupden:scheduling-module:0.0.12-SNAPSHOT'
+    implementation 'ru.isupden:scheduling-module:{version}'
 }
 ```
 
